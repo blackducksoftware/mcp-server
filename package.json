@@ -1,0 +1,20 @@
+{
+  "name": "@blackducksoftware/mcp-server-registry",
+  "version": "1.0.0",
+  "description": "MCP Registry metadata for Black Duck MCP Server",
+  "mcpName": "com.blackduck/mcp-server",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/blackducksoftware/mcp-server"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "black-duck",
+    "security",
+    "sca",
+    "vulnerability-scanning"
+  ],
+  "author": "Black Duck Software",
+  "license": "SEE LICENSE IN LICENSE"
+}
