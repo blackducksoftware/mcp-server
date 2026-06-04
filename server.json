@@ -3,7 +3,7 @@
   "name": "com.blackduck/mcp-server",
   "title": "Black Duck Security Scanner",
   "description": "AI-powered security scanning using Black Duck Signal for vulnerability detection.",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "repository": {
     "url": "https://github.com/blackducksoftware/mcp-server",
     "source": "github"
@@ -12,7 +12,7 @@
     {
       "registryType": "npm",
       "identifier": "@black-duck/mcp-server",
-      "version": "1.1.5",
+      "version": "1.1.6",
       "transport": {
         "type": "stdio"
       }

@@ -5,10 +5,10 @@ Black Duck MCP brings Signal's AI-powered security analysis directly into your d
 ## Key Features & Benefits
 
 - **Changes Scan**:
-  - Performs fast, incremental security scans focused only on the code changes introduced by the developer.
+  - Performs fast, incremental security scans focused only on the code changes introduced by the developer. 
   - Ideal for early-stage detection of issues as code is written
 - **File Scan**:
-  - Runs a targeted security analysis on specific files or directories.
+  - Runs a targeted security analysis on specific files or directories. 
   - Best suited for projects that do not use Git or for developers who want to analyze specific portions of the codebase
 - **Cross-Platform Support**:
   - Works on Windows, macOS, and Linux
@@ -23,7 +23,6 @@ Black Duck MCP brings Signal's AI-powered security analysis directly into your d
 ### Step 1: Add to your MCP client
 
 Add the following configuration to your MCP client (using Claude user level config as example):
-
 ```json
 {
   "mcpServers": {
@@ -40,7 +39,7 @@ Add the following configuration to your MCP client (using Claude user level conf
 
 ### Step 2: Your first scan
 
-Use one of the following prompts in your MCP client to get started:
+Use one of following prompts in your MCP client to get you started:
 
 ```
 Scan my code changes for security vulnerabilities
@@ -95,6 +94,7 @@ You can set these variables in your MCP client configuration:
 }
 ```
 
+
 ## Logging and Troubleshooting
 
 ### Log Location
@@ -115,12 +115,12 @@ The following URLs and IP addresses must be accessible for the MCP server to fun
 
 > Ensure your firewall allows outbound HTTPS (port 443) connections to these endpoints
 
-## License Terms
 
-By downloading this package, you are agreeing to the [Black Duck End User License Agreement](https://www.blackduck.com/content/dam/black-duck/en-us/legal/slsa/eSLSA-v2025.1-Global.pdf).
+## License Terms
+By downloading this package, you are agreeing to the [Black Duck End User License Agreement](https://www.blackduck.com/content/dam/black-duck/en-us/legal/slsa/eSLSA-v2025.1-Global.pdf). 
+
 
 ## Resources
-
 - [Documentation](https://documentation.blackduck.com/bundle/signal/page/topics/c_signal_overview.html)
 - [Black Duck Signal](https://www.blackduck.com/signal-ai-appsec.html)
 - [Contact Us](https://www.blackduck.com/signal-ai-appsec/early-access.html)
