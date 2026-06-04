@@ -1,33 +1,21 @@
 {
-  "$schema": "https://raw.githubusercontent.com/modelcontextprotocol/registry/main/schemas/server.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.blackduck/mcp-server",
-  "display_name": "Black Duck Security Scanner",
-  "description": "AI-powered security scanning using Black Duck Signal. Analyze code changes and files for security vulnerabilities.",
+  "title": "Black Duck Security Scanner",
+  "description": "AI-powered security scanning using Black Duck Signal for vulnerability detection.",
+  "version": "1.1.5",
   "repository": {
     "url": "https://github.com/blackducksoftware/mcp-server",
     "source": "github"
   },
   "packages": [
     {
-      "registry_type": "npm",
-      "identifier": "@black-duck/mcp-server"
+      "registryType": "npm",
+      "identifier": "@black-duck/mcp-server",
+      "version": "1.1.5",
+      "transport": {
+        "type": "stdio"
+      }
     }
-  ],
-  "tools": [
-    {
-      "name": "run_diff_security_scan",
-      "description": "Analyze git diffs for security vulnerabilities (recommended)"
-    },
-    {
-      "name": "run_security_scan",
-      "description": "Scan specific files for security vulnerabilities"
-    }
-  ],
-  "keywords": [
-    "security",
-    "vulnerability",
-    "sca",
-    "code-analysis",
-    "black-duck"
   ]
 }

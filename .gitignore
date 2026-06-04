@@ -18,3 +18,9 @@ npm-debug.log*
 # Build outputs
 dist/
 build/
+
+# Secrets / keys (MCP registry DNS auth)
+key.pem
+*.pem
+pubkey.b64
+pubkey.der
