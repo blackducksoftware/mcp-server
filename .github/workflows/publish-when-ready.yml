@@ -1,0 +1,210 @@
+name: Publish to MCP Registry when NPM and MCPB align
+
+# Single coordinated publisher. Polls both upstream sources hourly:
+#   1. The npm registry for the latest @black-duck/mcp-server release
+#   2. The Black Duck Artifactory mirror for the latest MCPB bundle
+# When both sources advertise the same version AND that version has not
+# yet been published from this repo, the workflow:
+#   - Creates a GitHub Release with the MCPB attached
+#   - Updates server.json (top-level version, npm package version, mcpb entry)
+#   - Syncs README from npm
+#   - Publishes the updated server.json to the MCP Registry via mcp-publisher
+#   - Commits the server.json + README changes back to the repo
+# Otherwise it logs the current state and exits cleanly.
+
+on:
+  schedule:
+    - cron: "0 * * * *" # hourly
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    env:
+      MIRROR_BASE: "https://repo.blackduck.com/signal/mcp/mcpb"
+      MIRROR_LIST_API: "https://repo.blackduck.com/api/storage/signal/mcp/mcpb?list&deep=0"
+      NPM_PACKAGE: "@black-duck/mcp-server"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Decide whether to publish
+        id: decide
+        run: |
+          NPM_VERSION=$(npm view "$NPM_PACKAGE" version)
+
+          LISTING=$(curl -fsSL "$MIRROR_LIST_API" || echo '{"files":[]}')
+          MCPB_VERSION=$(echo "$LISTING" \
+            | jq -r '.files[]?.uri // empty' \
+            | grep -oE '/black-duck-mcp-[0-9]+\.[0-9]+\.[0-9]+\.mcpb$' \
+            | sed -E 's|^/black-duck-mcp-(.+)\.mcpb$|\1|' \
+            | sort -V \
+            | tail -n1)
+
+          CURRENT_VERSION=$(jq -r '.version' server.json)
+
+          {
+            echo "| source | version |"
+            echo "|---|---|"
+            echo "| npm | $NPM_VERSION |"
+            echo "| mcpb mirror | ${MCPB_VERSION:-<none>} |"
+            echo "| server.json | $CURRENT_VERSION |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -z "$MCPB_VERSION" ]; then
+            echo "No MCPB found in mirror; nothing to do." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$NPM_VERSION" != "$MCPB_VERSION" ]; then
+            echo "Waiting for npm and mcpb to align (npm=$NPM_VERSION, mcpb=$MCPB_VERSION)." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$NPM_VERSION" = "$CURRENT_VERSION" ]; then
+            echo "Version $NPM_VERSION already published; nothing to do." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Publishing v$NPM_VERSION (npm + mcpb aligned; was $CURRENT_VERSION)." \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+          FILENAME="black-duck-mcp-${NPM_VERSION}.mcpb"
+          {
+            echo "proceed=true"
+            echo "version=$NPM_VERSION"
+            echo "tag=v$NPM_VERSION"
+            echo "filename=$FILENAME"
+            echo "mirror_url=$MIRROR_BASE/$FILENAME"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download MCPB from mirror
+        if: steps.decide.outputs.proceed == 'true'
+        run: |
+          curl -fSL --output "${{ steps.decide.outputs.filename }}" "${{ steps.decide.outputs.mirror_url }}"
+          ls -la "${{ steps.decide.outputs.filename }}"
+
+      - name: Compute SHA-256
+        if: steps.decide.outputs.proceed == 'true'
+        id: sha
+        run: |
+          SHA=$(sha256sum "${{ steps.decide.outputs.filename }}" | awk '{print $1}')
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "SHA-256: \`$SHA\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create or update GitHub Release
+        if: steps.decide.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.decide.outputs.tag }}"
+          VERSION="${{ steps.decide.outputs.version }}"
+          FILENAME="${{ steps.decide.outputs.filename }}"
+          SHA="${{ steps.sha.outputs.sha }}"
+
+          NOTES=$(cat <<EOF
+          Black Duck MCP Server v${VERSION}.
+
+          ## Install in Claude Desktop
+          Download \`${FILENAME}\` below and double-click it.
+
+          ## Integrity
+          \`\`\`
+          SHA-256: ${SHA}
+          \`\`\`
+          EOF
+          )
+
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; uploading asset (--clobber)."
+            gh release upload "$TAG" "$FILENAME" \
+              --repo "${{ github.repository }}" \
+              --clobber
+          else
+            gh release create "$TAG" "$FILENAME" \
+              --repo "${{ github.repository }}" \
+              --title "Black Duck MCP Server $TAG" \
+              --notes "$NOTES"
+          fi
+
+      - name: Update server.json
+        if: steps.decide.outputs.proceed == 'true'
+        run: |
+          VERSION="${{ steps.decide.outputs.version }}"
+          SHA="${{ steps.sha.outputs.sha }}"
+          MCPB_URL="https://github.com/${{ github.repository }}/releases/download/${{ steps.decide.outputs.tag }}/${{ steps.decide.outputs.filename }}"
+
+          # - bump top-level .version
+          # - bump version of the existing npm package entry (preserves transport, etc.)
+          # - replace any prior mcpb entry with a fresh one
+          jq \
+            --arg v "$VERSION" \
+            --arg url "$MCPB_URL" \
+            --arg sha "$SHA" \
+            '
+              .version = $v |
+              .packages |= (
+                (map(select(.registryType != "mcpb"))
+                 | map(if .registryType == "npm" then .version = $v else . end))
+                +
+                [{
+                  registryType: "mcpb",
+                  identifier: $url,
+                  version: $v,
+                  fileSha256: $sha,
+                  transport: { type: "stdio" }
+                }]
+              )
+            ' server.json > server.tmp
+          mv server.tmp server.json
+
+          echo "Updated server.json:" >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat server.json >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Sync README from npm
+        if: steps.decide.outputs.proceed == 'true'
+        run: npm view "$NPM_PACKAGE" readme > README.md
+
+      - name: Install mcp-publisher
+        if: steps.decide.outputs.proceed == 'true'
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          chmod +x mcp-publisher
+
+      - name: Validate server.json
+        if: steps.decide.outputs.proceed == 'true'
+        run: ./mcp-publisher validate server.json
+
+      - name: Authenticate to MCP Registry (DNS)
+        if: steps.decide.outputs.proceed == 'true'
+        run: ./mcp-publisher login dns --domain blackduck.com --private-key "${{ secrets.MCP_PRIVATE_KEY }}"
+
+      - name: Publish to MCP Registry
+        if: steps.decide.outputs.proceed == 'true'
+        run: ./mcp-publisher publish server.json
+
+      - name: Commit and push updates
+        if: steps.decide.outputs.proceed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server.json README.md
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: publish v${{ steps.decide.outputs.version }} (npm + mcpb)"
+            git push
+            echo "Published v${{ steps.decide.outputs.version }} to MCP Registry." >> "$GITHUB_STEP_SUMMARY"
+          fi
