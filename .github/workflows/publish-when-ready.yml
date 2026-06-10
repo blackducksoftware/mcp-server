@@ -38,9 +38,9 @@ jobs:
         run: |
           NPM_VERSION=$(npm view "$NPM_PACKAGE" version)
 
-          LISTING=$(curl -fsSL "$MIRROR_LIST_API" || echo '{"files":[]}')
+          LISTING=$(curl -fsSL "$MIRROR_LIST_API" || echo '{}')
           MCPB_VERSION=$(echo "$LISTING" \
-            | jq -r '.files[]?.uri // empty' \
+            | jq -r '(.files // .children // [])[]?.uri // empty' \
             | grep -oE '/black-duck-mcp-[0-9]+\.[0-9]+\.[0-9]+\.mcpb$' \
             | sed -E 's|^/black-duck-mcp-(.+)\.mcpb$|\1|' \
             | sort -V \
