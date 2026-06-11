@@ -116,8 +116,9 @@ The following URLs and IP addresses must be accessible for the MCP server to fun
 > Ensure your firewall allows outbound HTTPS (port 443) connections to these endpoints
 
 
-## License Terms
-By downloading this package, you are agreeing to the [Black Duck End User License Agreement](https://www.blackduck.com/content/dam/black-duck/en-us/legal/slsa/eSLSA-v2025.1-Global.pdf). 
+## License
+
+This project is licensed under the [MIT License](LICENSE).
 
 
 ## Resources
